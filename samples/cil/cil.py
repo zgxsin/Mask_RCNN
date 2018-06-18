@@ -84,6 +84,8 @@ class CilConfig(Config):
     VALIDATION_STEPS = 1
 
     # set MINI mask shape, since tram is always rectangular.
+
+    USE_MINI_MASK = False
     # MINI_MASK_SHAPE = (56, 90)
 
 
@@ -216,7 +218,7 @@ def train(model):
 
     model.train(dataset_train, dataset_val,
                 learning_rate=config.LEARNING_RATE,
-                epochs=70,
+                epochs=20,
                 layers='heads')
 
 ############################################################
