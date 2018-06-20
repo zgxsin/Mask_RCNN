@@ -76,7 +76,7 @@ class CilConfig(Config):
     NUM_CLASSES = 1 + 1  # Background + road
 
     # Number of training steps per epoch
-    STEPS_PER_EPOCH = 50
+    STEPS_PER_EPOCH = 1500
 
     # Skip detections with < 90% confidence
     DETECTION_MIN_CONFIDENCE = 0.9
@@ -88,12 +88,39 @@ class CilConfig(Config):
     USE_MINI_MASK = False
     # MINI_MASK_SHAPE = (56, 90)
 
+    RPN_ANCHOR_SCALES = (4, 8, 16, 32, 64)
+
+    # Ratios of anchors at each cell (width/height)
+    # A value of 1 represents a square anchor, and 0.5 is a wide anchor
+    RPN_ANCHOR_RATIOS = [0.2, 1, 5]
+
+
+    RPN_TRAIN_ANCHORS_PER_IMAGE = 16
+
+    IMAGE_MAX_DIM = 64
+
 
 ############################################################
 #  Dataset
 ############################################################
 
 class CilDataset(utils.Dataset):
+
+
+    def img_crop(self,im, w, h):
+        list_patches = []
+        imgwidth = im.shape[0]
+        imgheight = im.shape[1]
+        is_2d = len( im.shape ) < 3
+        for i in range( 0, imgheight, h ):
+            for j in range( 0, imgwidth, w ):
+                if is_2d:
+                    im_patch = im[j:j + w, i:i + h]
+                else:
+                    im_patch = im[j:j + w, i:i + h, :]
+                list_patches.append( im_patch )
+                #     print(len(list_patches))
+        return list_patches
 
     def load_cil(self, original_directory, subset):
         '''
@@ -122,6 +149,7 @@ class CilDataset(utils.Dataset):
         #############
         mask_list = [f for f in listdir(mask_path) if isfile(join(mask_path,f))]
         image_counter = 0
+        PATCH_SIZE = 40
 
         for i, filename in enumerate(mask_list):
             image_path = os.path.join(dataset_dir,"images",filename)
@@ -134,16 +162,23 @@ class CilDataset(utils.Dataset):
             mask_temp = skimage.io.imread(os.path.join(mask_path, filename), as_grey=True)
             # mask has to be bool type
 
+
+
             mask_temp = mask_temp > 0
             masks = np.asarray(mask_temp, np.bool)
-            masks = np.expand_dims(masks, 0)
-            self.add_image(
-                "cil_project",
-                image_id=filename,  # use file name as a unique image id
-                path=image_path,
-                width=width, height=height,
-                polygons=masks)
-            image_counter = image_counter+1
+
+            img_patches = self.img_crop(image, PATCH_SIZE, PATCH_SIZE )
+            gt_patches = self.img_crop( masks, PATCH_SIZE, PATCH_SIZE)
+
+            for patch_index in range(len(img_patches)):
+                masks = np.expand_dims(gt_patches[i], 0)
+                self.add_image(
+                    "cil_project",
+                    image_id=filename,  # use file name as a unique image id
+                    path=img_patches[i],
+                    width=PATCH_SIZE, height=PATCH_SIZE,
+                    polygons=masks)
+                image_counter = image_counter+1
 
         string = "trainging" if subset=="train" else "validation"
         print("The number of {0} samples is {1} at Cil Dataset".format(string, image_counter))

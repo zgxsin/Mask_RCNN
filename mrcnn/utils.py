@@ -365,7 +365,13 @@ class Dataset(object):
         """Load the specified image and return a [H,W,3] Numpy array.
         """
         # Load image
-        image = skimage.io.imread(self.image_info[image_id]['path'])
+        # if path object is ndarray, just read it directly
+        if isinstance(self.image_info[image_id]['path'], np.ndarray):
+            image = self.image_info[image_id]['path']
+
+        else:
+            image = skimage.io.imread(self.image_info[image_id]['path'])
+
         # If grayscale. Convert to RGB for consistency.
         if image.ndim != 3:
             image = skimage.color.gray2rgb(image)
